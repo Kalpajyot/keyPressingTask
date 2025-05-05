@@ -60,7 +60,7 @@ button:focus {
 <div id="participantIDForm">
   <div>
     <h2>Participant Information</h2>
-    <p>Please enter your participant ID:</p>
+    <p>Please enter your Name:</p>
     <input type="text" id="participantID" required>
     <br>
     <button onclick="collectID()">Continue</button>
@@ -232,21 +232,24 @@ button:focus {
   }
 
   function submitWTime() {
-    const w = parseFloat(wTimeInput.value);
-    if (isNaN(w) || w < 0 || w >= 360) {
-      alert("Please enter a valid angle (0–360).");
-      return;
-    }
-    currentTrial.w_time_angle = w.toFixed(1);
-    trialData.push(currentTrial);
-    overlay.style.display = "none";
-
-    if (trialNumber >= totalTrials) {
-      alert("All trials complete. Press S to save your data.");
-    } else {
-      startTrial();
-    }
+  const w = parseFloat(wTimeInput.value);
+  if (isNaN(w) || w < 0 || w >= 60) {
+    alert("Please enter a valid clock position (0–59).");
+    return;
   }
+  currentTrial.w_time_position = Math.round(w); // or `.toFixed(1)` if needed
+  trialData.push(currentTrial);
+  overlay.style.display = "none";
+  
+  wTimeInput.value = ""; // <-- Clear the input box
+
+  if (trialNumber >= totalTrials) {
+    alert("All trials complete. Press S to save your data.");
+  } else {
+    startTrial();
+  }
+}
+
 
   function collectID() {
     const input = document.getElementById("participantID").value.trim();
