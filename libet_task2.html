@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Libet Clock</title>
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+      background: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: sans-serif;
+    }
+    canvas {
+      background-color: white;
+    }
+    #overlay, #instruction, #participantIDForm {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 20px;
+      z-index: 10;
+    }
+    #overlay, #instruction {
+      display: none;
+    }
+    button {
+  font-size: 16px;
+  padding: 6px 12px;
+  margin-top: 20px;
+  background-color: #28a745; /* Green */
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+button:hover,
+button:focus {
+  background-color: #ff8800; /* Orange */
+}
+
+    input {
+      font-size: 16px;
+      padding: 5px;
+    }
+  </style>
+</head>
+<body>
+
+<div id="participantIDForm">
+  <div>
+    <h2>Participant Information</h2>
+    <p>Please enter your participant ID:</p>
+    <input type="text" id="participantID" required>
+    <br>
+    <button onclick="collectID()">Continue</button>
+  </div>
+</div>
+
+<div id="instruction">
+  <div>
+    <h2>Instructions</h2>
+    <p>A dot will rotate around a clock face.</p>
+    <p>Press <strong>spacebar</strong> when you feel the urge to move.</p>
+    <p>After each trial, enter the clock position such as 5,12,40,20,44,50 etc. where you first felt the urge.</p>
+    <p>Press <strong>Q</strong> to quit early. Press <strong>S</strong> to save your data at any time.</p>
+    <button onclick="startTask()">Start</button>
+  </div>
+</div>
+
+<canvas id="clock" width="500" height="500"></canvas>
+
+<div id="overlay">
+  <div>
+    <p>Enter the clock position when you first felt the urge to move:</p>
+    <input type="number" id="wTimeDeg" min="0" max="360" step="0.1">
+    <br>
+    <button onclick="submitWTime()">Submit</button>
+  </div>
+</div>
+
+<!-- Audio element for feedback -->
+<audio id="beepSound" src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg" preload="auto"></audio>
+
+<script>
+  const canvas = document.getElementById('clock');
+  const ctx = canvas.getContext('2d');
+  const centerX = canvas.width / 2;
+  const centerY = canvas.height / 2;
+  const radius = 180;
+  const dotRadius = 8; // Increased size
+  const dotColor = "blue"; // Changed color
+
+  const rotationPeriod = 5000;
+
+  let participantID = '';
+  let trialStartTime = null;
+  let animationId = null;
+  let trialRunning = false;
+  let dotAngle = 0;
+  let dotAlpha = 1;
+  let trialData = [];
+  let trialNumber = 0;
+  const totalTrials = 10;
+  let currentTrial = {};
+
+  const overlay = document.getElementById('overlay');
+  const instruction = document.getElementById('instruction');
+  const wTimeInput = document.getElementById('wTimeDeg');
+  const beepSound = document.getElementById('beepSound');
+
+  function drawClockFace() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+    ctx.lineWidth = 5;
+    ctx.strokeStyle = "black";
+    ctx.stroke();
+
+    for (let i = 0; i < 60; i++) {
+      const angle = (i / 60) * 2 * Math.PI - Math.PI / 2;
+      const outer = radius;
+      const inner = i % 5 === 0 ? radius - 15 : radius - 7;
+      const x1 = centerX + inner * Math.cos(angle);
+      const y1 = centerY + inner * Math.sin(angle);
+      const x2 = centerX + outer * Math.cos(angle);
+      const y2 = centerY + outer * Math.sin(angle);
+
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.lineWidth = i % 5 === 0 ? 3 : 1;
+      ctx.strokeStyle = "black";
+      ctx.stroke();
+
+      if (i % 5 === 0) {
+        const label = i === 0 ? "60" : i.toString();
+        const labelX = centerX + (radius + 20) * Math.cos(angle);
+        const labelY = centerY + (radius + 20) * Math.sin(angle);
+        ctx.font = "18px Arial";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillStyle = "black";
+        ctx.fillText(label, labelX, labelY);
+      }
+    }
+  }
+
+  function drawClock(timestamp) {
+    const elapsed = timestamp - trialStartTime;
+    dotAngle = ((elapsed % rotationPeriod) / rotationPeriod) * 2 * Math.PI - Math.PI / 2;
+
+    drawClockFace();
+
+    const dotX = centerX + radius * Math.cos(dotAngle);
+    const dotY = centerY + radius * Math.sin(dotAngle);
+    ctx.beginPath();
+    ctx.arc(dotX, dotY, dotRadius, 0, 2 * Math.PI);
+    ctx.fillStyle = `rgba(255, 0, 0, ${dotAlpha})`; // Red dot
+; // Blue dot
+    ctx.fill();
+
+    if (trialRunning) {
+      animationId = requestAnimationFrame(drawClock);
+    }
+  }
+
+  function startTrial() {
+    if (trialNumber >= totalTrials) return;
+
+    trialNumber++;
+    trialRunning = true;
+    dotAlpha = 1;
+    trialStartTime = performance.now();
+    requestAnimationFrame(drawClock);
+  }
+
+  function endTrial(responseTime) {
+    const elapsed = responseTime - trialStartTime;
+    const actionPosition = ((elapsed % rotationPeriod) / rotationPeriod) * 60;
+
+
+    beepSound.play(); // 🔊 Play feedback
+
+    currentTrial = {
+      participant: participantID,
+      trial: trialNumber,
+      action_ms: Math.round(elapsed),
+      action_position: actionPosition.toFixed(1),
+      
+      timestamp: new Date().toISOString(),
+      w_time_angle: null
+    };
+
+    trialRunning = false;
+
+    let fadeStart = performance.now();
+
+    function fadeOutDot(timestamp) {
+      const elapsedFade = timestamp - fadeStart;
+      dotAlpha = 1 - (elapsedFade / 1000);
+      if (dotAlpha < 0) dotAlpha = 0;
+
+      drawClock(timestamp);
+
+      if (elapsedFade < 1000) {
+        requestAnimationFrame(fadeOutDot);
+      } else {
+        drawClockFace();  
+        const dotX = centerX + radius * Math.cos(dotAngle);
+        const dotY = centerY + radius * Math.sin(dotAngle);
+        ctx.beginPath();
+        ctx.arc(dotX, dotY, dotRadius, 0, 2 * Math.PI);
+        ctx.fillStyle = "red";
+        ctx.fill();
+
+        overlay.style.display = "flex";
+      }
+    }
+
+    requestAnimationFrame(fadeOutDot);
+  }
+
+  function submitWTime() {
+    const w = parseFloat(wTimeInput.value);
+    if (isNaN(w) || w < 0 || w >= 360) {
+      alert("Please enter a valid angle (0–360).");
+      return;
+    }
+    currentTrial.w_time_angle = w.toFixed(1);
+    trialData.push(currentTrial);
+    overlay.style.display = "none";
+
+    if (trialNumber >= totalTrials) {
+      alert("All trials complete. Press S to save your data.");
+    } else {
+      startTrial();
+    }
+  }
+
+  function collectID() {
+    const input = document.getElementById("participantID").value.trim();
+    if (!input) {
+      alert("Please enter a valid Participant ID.");
+      return;
+    }
+    participantID = input;
+    document.getElementById('participantIDForm').style.display = 'none';
+    instruction.style.display = 'flex';
+  }
+
+  function startTask() {
+    instruction.style.display = 'none';
+    startTrial();
+  }
+
+  function downloadCSV() {
+    const csvContent = "data:text/csv;charset=utf-8," +
+      ["Participant,Trial,Action Time (ms),Action Angle (deg),W-Time Angle (deg),Timestamp", ...trialData.map(d =>
+        `${d.participant},${d.trial},${d.action_ms},${d.action_position},${d.w_time_angle},${d.timestamp}`
+      )].join("\n");
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `libet_data_${participantID}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.code === 'Space' && trialRunning) {
+      endTrial(performance.now());
+    } else if (e.key.toLowerCase() === 's') {
+      downloadCSV();
+    } else if (e.key.toLowerCase() === 'q') {
+      trialRunning = false;
+      cancelAnimationFrame(animationId);
+      alert("Task quit. Press S to save any collected data.");
+    }
+  });
+</script>
+
+</body>
+</html>
