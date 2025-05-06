@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <script src="https://cdn.jsdelivr.net/npm/@zip.js/zip.js@2.7.27/dist/zip.min.js"></script>
+
+    <meta charset="UTF-8" />
+    <title>Libet Clock</title>
+    <style>
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+        background: rgb(0, 0, 0);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: sans-serif;
+      }
+
+      canvas {
+        background-color: rgb(0, 0, 0);
+      }
+
+      #overlay,
+      #instruction,
+      #participantIDForm {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        padding: 20px;
+        z-index: 10;
+      }
+
+      #overlay,
+      #instruction {
+        display: none;
+      }
+
+      button {
+        font-size: 16px;
+        padding: 6px 12px;
+        margin-top: 20px;
+        background-color: #28a745;
+        /* Green */
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+      }
+
+      button:hover,
+      button:focus {
+        background-color: #ff8800;
+        /* Orange */
+      }
+
+      input {
+        font-size: 16px;
+        padding: 5px;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div id="participantIDForm">
+      <div>
+        <h2>Participant Information</h2>
+        <p>Please enter your Name:</p>
+        <input type="text" id="participantID" required />
+        <br />
+        <button onclick="collectID()">Continue</button>
+      </div>
+    </div>
+
+    <!-- <div id="instruction">
+  <div>
+    <h2>Instructions</h2>
+    <p>A dot will rotate around a clock face.</p>
+    <p>Press <strong>spacebar</strong> when you feel the urge to move.</p>
+    <p>After each trial, enter the clock position such as 5,12,40,20,44,50 etc. where you first felt the urge.</p>
+    <p>Press <strong>Q</strong> to quit early. Press <strong>S</strong> to save your data at any time.</p>
+    <button onclick="startTask()">Start</button>
+  </div>
+</div> -->
+    <div id="instruction">
+      <div>
+        <h2 style="font-weight: bold; color: white">
+          Libet Clock Task Instructions
+        </h2>
+        <ul style="color: white; font-weight: bold; text-align: left">
+          <li>
+            You will see a clock with a dot rotating around it during the task.
+          </li>
+          <li>
+            At any moment you feel the urge to press the
+            <strong>right arrow key</strong>, press it.
+          </li>
+          <li>
+            After pressing the right arrow key, a question box will appear
+            asking:
+            <ul>
+              <li>
+                Where was the dot on the clock face when you first felt the urge
+                to press?
+              </li>
+            </ul>
+          </li>
+          <li>
+            <strong>What is Urge Time (W-time)?</strong>
+            <ul>
+              <li>
+                It is the moment you first become aware of your intention to
+                act.
+              </li>
+              <li>
+                This happens before the actual right arrow key press (the
+                action).
+              </li>
+            </ul>
+          </li>
+          <li>
+            After each trial:
+            <ul>
+              <li>
+                Enter the clock position (0–59) where the dot was when you felt
+                the urge.
+              </li>
+              <li>
+                Just give your best estimate; it doesn't have to be exact.
+              </li>
+            </ul>
+          </li>
+          <li>
+            There will be <strong> 200 trials</strong>. Stay relaxed and
+            focused.
+          </li>
+          <li>
+            After the last trial, press <strong>S</strong> to download your data
+            as a CSV file. Please share the data through
+          </li>
+        </ul>
+        <p style="font-weight: bold; color: white">
+          Press the button below to begin the task.
+        </p>
+        <button onclick="startTask()">Start</button>
+      </div>
+    </div>
+
+    <style>
+      #instruction {
+        background-color: black;
+        color: white;
+        font-family: sans-serif;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        padding: 20px;
+        text-align: center;
+        width: 100vw;
+        height: 100vh;
+        z-index: 10;
+      }
+
+      button {
+        font-size: 16px;
+        padding: 10px 20px;
+        margin-top: 20px;
+        background-color: #28a745;
+        /* Green */
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+        font-weight: bold;
+      }
+
+      button:hover,
+      button:focus {
+        background-color: #ff8800;
+        /* Orange */
+      }
+    </style>
+
+    <canvas id="clock" width="500" height="500"></canvas>
+
+    <!-- <div id="overlay">
+      <div>
+        <p>Enter the clock position when you first felt the urge to move:</p>
+        <input type="number" id="wTimeDeg" min="0" max="360" step="0.1" />
+        <br />
+        <button onclick="submitWTime()">Submit</button>
+      </div>
+    </div> -->
+    <div id="overlay">
+      <div>
+        <p>Enter the clock position when you first felt the urge to move:</p>
+        <input type="number" id="wTimeDeg" min="0" max="360" step="0.1" />
+        <br />
+        <p>
+          If you are highly confident on your urge time, press
+          <strong>3</strong>, medium <strong>2</strong>, or low
+          <strong>1</strong>:
+        </p>
+        <input type="number" id="confidenceLevel" min="1" max="3" step="1" />
+        <br />
+        <button onclick="submitWTime()">Submit</button>
+      </div>
+    </div>
+
+    <!-- Audio element for feedback -->
+    <audio
+      id="beepSound"
+      src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg"
+      preload="auto"
+    ></audio>
+
+    <script>
+      const canvas = document.getElementById("clock");
+      const ctx = canvas.getContext("2d");
+      const centerX = canvas.width / 2;
+      const centerY = canvas.height / 2;
+      const radius = 180;
+      const dotRadius = 8; // Increased size
+      const dotColor = "blue"; // Changed color
+
+      const rotationPeriod = 5100;
+
+      let participantID = "";
+      const ZIP_PASSWORD = "libet123"; // 🔒 Experimenter-defined password
+      let trialStartTime = null;
+      let animationId = null;
+      let trialRunning = false;
+      let dotAngle = Math.random() * 2 * Math.PI - Math.PI / 2; // Start at a random angle0
+      let dotAlpha = 1;
+      let trialData = [];
+      let trialNumber = 0;
+      const totalTrials = 200;
+      let currentTrial = {};
+
+      const overlay = document.getElementById("overlay");
+      const instruction = document.getElementById("instruction");
+      const wTimeInput = document.getElementById("wTimeDeg");
+      const beepSound = document.getElementById("beepSound");
+
+      function drawClockFace() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+        ctx.lineWidth = 5;
+        ctx.strokeStyle = "white";
+        ctx.stroke();
+
+        for (let i = 0; i < 60; i++) {
+          const angle = (i / 60) * 2 * Math.PI - Math.PI / 2;
+          const outer = radius;
+          const inner = i % 5 === 0 ? radius - 15 : radius - 7;
+          const x1 = centerX + inner * Math.cos(angle);
+          const y1 = centerY + inner * Math.sin(angle);
+          const x2 = centerX + outer * Math.cos(angle);
+          const y2 = centerY + outer * Math.sin(angle);
+
+          ctx.beginPath();
+          ctx.moveTo(x1, y1);
+          ctx.lineTo(x2, y2);
+          ctx.lineWidth = i % 5 === 0 ? 3 : 1;
+          ctx.strokeStyle = "white";
+          ctx.stroke();
+
+          if (i % 5 === 0) {
+            const label = i === 0 ? "60" : i.toString();
+            const labelX = centerX + (radius + 20) * Math.cos(angle);
+            const labelY = centerY + (radius + 20) * Math.sin(angle);
+            ctx.font = "18px Arial";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillStyle = "white";
+            ctx.fillText(label, labelX, labelY);
+          }
+        }
+      }
+
+      function drawClock(timestamp) {
+        const elapsed = timestamp - trialStartTime;
+        const rotationAngle =
+          ((elapsed % rotationPeriod) / rotationPeriod) * 2 * Math.PI;
+        const currentAngle = dotAngle + rotationAngle; // Add rotation to the initial random angle
+
+        drawClockFace();
+
+        const dotX = centerX + radius * Math.cos(currentAngle);
+        const dotY = centerY + radius * Math.sin(currentAngle);
+        ctx.beginPath();
+        ctx.arc(dotX, dotY, dotRadius, 0, 2 * Math.PI);
+        ctx.fillStyle = `rgba(255, 0, 0, ${dotAlpha})`; // Red dot
+        ctx.fill();
+
+        if (trialRunning) {
+          animationId = requestAnimationFrame(drawClock);
+        }
+      }
+
+      function startTrial() {
+        if (trialNumber >= totalTrials) return;
+
+        trialNumber++;
+        trialRunning = true;
+        dotAlpha = 1;
+        dotAngle = Math.random() * 2 * Math.PI - Math.PI / 2; // Set a random starting angle
+        const startingPosition =
+          ((dotAngle + Math.PI / 2) / (2 * Math.PI)) * 60; // Convert to clock position (0–59)
+        trialStartTime = performance.now();
+
+        currentTrial = {
+          trial: trialNumber,
+          starting_position: startingPosition.toFixed(1), // Save starting position
+        };
+
+        requestAnimationFrame(drawClock);
+      }
+
+      function endTrial(responseTime) {
+        const elapsed = responseTime - trialStartTime; // Time elapsed since trial started
+        const rotationFraction = (elapsed % rotationPeriod) / rotationPeriod; // Fraction of the rotation period completed
+        const actionPosition =
+          (parseFloat(currentTrial.starting_position) + rotationFraction * 60) %
+          60; // Calculate the action position based on starting position
+
+        beepSound.play(); // 🔊 Play feedback
+
+        // Preserve the starting_position and other existing fields in currentTrial
+        currentTrial = {
+          ...currentTrial, // Keep existing fields like starting_position
+          participant: participantID,
+          action_ms: Math.round(elapsed),
+          action_position: actionPosition.toFixed(1), // Save calculated action position
+          timestamp: new Date().toISOString(),
+          w_time_angle: null, // Placeholder for W-time
+        };
+
+        trialRunning = false;
+
+        let fadeStart = performance.now();
+
+        function fadeOutDot(timestamp) {
+          const elapsedFade = timestamp - fadeStart;
+          dotAlpha = 1 - elapsedFade / 1000;
+          if (dotAlpha < 0) dotAlpha = 0;
+
+          drawClock(timestamp);
+
+          if (elapsedFade < 1000) {
+            requestAnimationFrame(fadeOutDot);
+          } else {
+            drawClockFace();
+            const dotX = centerX + radius * Math.cos(dotAngle);
+            const dotY = centerY + radius * Math.sin(dotAngle);
+            ctx.beginPath();
+            ctx.arc(dotX, dotY, dotRadius, 0, 2 * Math.PI);
+            ctx.fillStyle = "red";
+            ctx.fill();
+
+            overlay.style.display = "flex";
+          }
+        }
+
+        requestAnimationFrame(fadeOutDot);
+      }
+
+      //   function submitWTime() {
+      //     const w = parseFloat(wTimeInput.value);
+      //     if (isNaN(w) || w < 0 || w >= 60) {
+      //       alert("Please enter a valid clock position (0–59).");
+      //       return;
+      //     }
+
+      //     const w_time_ms = (w / 60) * rotationPeriod;
+      //     const time_until_action = Math.round(
+      //       currentTrial.action_ms - w_time_ms
+      //     );
+
+      //     currentTrial.w_time_position = Math.round(w);
+      //     currentTrial.w_time_angle = Math.round(w); // Save W-time clock position
+      //     currentTrial.action_angle = currentTrial.action_position; // Store the calculated position as angle
+      //     currentTrial.w_time_ms = Math.round(w_time_ms);
+      //     currentTrial.w_delay_ms = time_until_action; // Save W-time delay
+
+      //     trialData.push(currentTrial);
+      //     overlay.style.display = "none";
+      //     wTimeInput.value = ""; // Clear input for next trial
+
+      //     if (trialNumber >= totalTrials) {
+      //       alert("All trials complete. Press S to save your data.");
+      //     } else {
+      //       startTrial();
+      //     }
+      //   }
+      function submitWTime() {
+        const w = parseFloat(wTimeInput.value); // W-time clock position
+        const confidence = parseInt(
+          document.getElementById("confidenceLevel").value
+        ); // Confidence level
+
+        if (isNaN(w) || w < 0 || w >= 60) {
+          alert("Please enter a valid clock position (0–59).");
+          return;
+        }
+
+        if (isNaN(confidence) || confidence < 1 || confidence > 3) {
+          alert(
+            "Please enter a confidence level: 1 (Low), 2 (Medium), or 3 (High)."
+          );
+          return;
+        }
+
+        const keyPressPosition = parseFloat(currentTrial.action_position); // Key-press clock position
+        const w_time_delay =
+          ((keyPressPosition - w + 60) % 60) * (rotationPeriod / 60); // Calculate W-time delay in milliseconds
+
+        currentTrial.w_time_position = Math.round(w); // Save W-time clock position
+        currentTrial.w_time_angle = Math.round(w); // Save W-time angle
+        currentTrial.action_angle = keyPressPosition; // Store the calculated key-press position
+        currentTrial.w_delay_ms = Math.round(w_time_delay); // Save W-time delay in milliseconds
+        currentTrial.confidence = confidence; // Store confidence rating
+
+        trialData.push(currentTrial); // Save trial data
+        overlay.style.display = "none"; // Hide overlay
+        wTimeInput.value = ""; // Clear W-time input
+        document.getElementById("confidenceLevel").value = ""; // Clear confidence input
+
+        if (trialNumber >= totalTrials) {
+          alert("All trials complete. Press S to save your data.");
+        } else {
+          startTrial(); // Start the next trial
+        }
+      }
+
+      function collectID() {
+        const input = document.getElementById("participantID").value.trim();
+        if (!input) {
+          alert("Please enter a valid Participant ID.");
+          return;
+        }
+        participantID = input;
+        document.getElementById("participantIDForm").style.display = "none";
+        instruction.style.display = "flex";
+      }
+
+      function startTask() {
+        instruction.style.display = "none";
+        startTrial();
+      }
+      //   async function downloadCSV() {
+      //     const csvContent =
+      //       "Participant,Trial,Action Time (ms),Action Angle (clock pos),W-Time Clock Pos,W-Time Delay (ms),Timestamp\n" +
+      //       trialData
+      //         .map(
+      //           (d) =>
+      //             `${d.participant},${d.trial},${d.action_ms},${d.action_angle},${d.w_time_angle},${d.w_delay_ms},${d.timestamp}`
+      //         )
+      //         .join("\n");
+
+      //     const blobWriter = new zip.BlobWriter("application/zip");
+      //     const zipWriter = new zip.ZipWriter(blobWriter, {
+      //       password: ZIP_PASSWORD,
+      //       encryptionStrength: 3, // AES-256
+      //     });
+
+      //     await zipWriter.add(
+      //       `libet_data_${participantID}.csv`,
+      //       new zip.TextReader(csvContent),
+      //       {
+      //         password: ZIP_PASSWORD,
+      //         encryptionStrength: 3,
+      //       }
+      //     );
+
+      //     const zipBlob = await zipWriter.close();
+      //     const link = document.createElement("a");
+      //     link.href = URL.createObjectURL(zipBlob);
+      //     link.download = `libet_data_${participantID}.zip`;
+      //     link.click();
+      //   }
+
+      async function downloadCSV() {
+        const csvContent =
+          "Participant,Trial,Starting Position (clock pos),Action Time (ms),Key-Press (clock pos),W-Time Clock Pos,W-Time Delay (ms),Confidence,Timestamp\n" +
+          trialData
+            .map(
+              (d) =>
+                `${d.participant},${d.trial},${d.starting_position},${d.action_ms},${d.action_angle},${d.w_time_angle},${d.w_delay_ms},${d.confidence},${d.timestamp}`
+            )
+            .join("\n");
+
+        const blobWriter = new zip.BlobWriter("application/zip");
+        const zipWriter = new zip.ZipWriter(blobWriter, {
+          password: ZIP_PASSWORD,
+          encryptionStrength: 3, // AES-256
+        });
+
+        await zipWriter.add(
+          `libet_data_${participantID}.csv`,
+          new zip.TextReader(csvContent),
+          {
+            password: ZIP_PASSWORD,
+            encryptionStrength: 3,
+          }
+        );
+
+        const zipBlob = await zipWriter.close();
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(zipBlob);
+        link.download = `libet_data_${participantID}.zip`;
+        link.click();
+      }
+
+      document.addEventListener("keydown", (e) => {
+        if (e.code === "ArrowRight" && trialRunning) {
+          // Change to ArrowRight key
+          endTrial(performance.now());
+        } else if (e.key.toLowerCase() === "s") {
+          downloadCSV();
+        } else if (e.key.toLowerCase() === "q") {
+          trialRunning = false;
+          cancelAnimationFrame(animationId);
+          alert("Task quit. Press S to save any collected data.");
+        }
+      });
+    </script>
+    <div
+      id="upload-section"
+      style="
+        display: none;
+        background: black;
+        color: white;
+        text-align: center;
+        padding: 40px;
+      "
+    >
+      <h2 style="color: white; font-weight: bold">
+        Thank you for participating!
+      </h2>
+      <p style="color: white">
+        You can upload your CSV file using the link below:
+      </p>
+      <a
+        href="https://forms.gle/exampleUploadFormLink"
+        target="_blank"
+        style="color: #00f; font-weight: bold"
+        >Click here to upload your CSV file</a
+      >
+    </div>
+  </body>
+</html>
