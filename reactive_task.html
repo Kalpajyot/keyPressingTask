@@ -116,67 +116,55 @@
     <div id="instruction">
       <div>
         <h2 style="font-weight: bold; color: white">
-          Libet Clock Task Instructions
+          Reactive Task Instructions
         </h2>
         <ul style="color: white; font-weight: bold; text-align: left">
           <li>
             You will see a clock with a dot rotating around it during the task.
           </li>
-          <li>The dot will briefly flash green at random times.</li>
           <li>
-            At any moment you feel the urge to press the
-            <strong>right arrow key</strong>, press it.
+            The dot will briefly flash <span style="color:lime">green</span> at random times.
           </li>
           <li>
-            After pressing the right arrow key, a question box will appear
-            asking:
+            <strong>Your task:</strong> As soon as you see the dot turn green, <strong>immediately press the right arrow key</strong>.
+          </li>
+          <li>
+            After pressing the right arrow key, a question box will appear asking:
             <ul>
               <li>
-                Where was the dot on the clock face when you first felt the urge
-                to press?
+                Where was the dot on the clock face when it turned green?
               </li>
-              <li>How confident are you about this time?</li>
+              <li>
+                How confident are you about this position?
+              </li>
             </ul>
           </li>
           <li>
-            <strong>What is Urge Time (W-time)?</strong>
-            <ul>
-              <li>
-                It is the moment you first become aware of your intention to
-                act.
-              </li>
-              <li>
-                This happens before the actual right arrow key press (the
-                action).
-              </li>
-            </ul>
+            <strong>Important:</strong> Try to react as quickly as possible when the dot turns green.
           </li>
           <li>
             After each trial:
             <ul>
               <li>
-                Enter the clock position (0–59.9) where the dot was when you
-                felt the urge.
+                Enter the clock position (0–59.9) where the dot turned green.
               </li>
-              <li>Enter your confidence level (1=Low, 2=Medium, 3=High).</li>
+              <li>
+                Enter your confidence level (1=Low, 2=Medium, 3=High).
+              </li>
               <li>
                 Just give your best estimate; it doesn't have to be exact.
               </li>
             </ul>
           </li>
           <li>
-            There will be <strong> 200 trials</strong>. Stay relaxed and
-            focused.
+            There will be <strong>100 trials</strong>. Stay relaxed and focused.
           </li>
           <li>
-            After the last trial, press <strong>S</strong> to download your data
-            as a password-protected ZIP file.
+            After the last trial, press <strong>S</strong> to download your data as a password-protected ZIP file.
           </li>
           <li>
-            <!-- Added instruction for emailing -->
             Please email the downloaded ZIP file to the experimenter at:
-            <strong>experimenter@example.com</strong>
-            <!-- !!--- IMPORTANT: Replace with actual email ---! -->
+            <strong>kalpajyotih@iisc.ac.in</strong>
           </li>
         </ul>
         <p style="font-weight: bold; color: white">
@@ -190,10 +178,12 @@
 
     <div id="overlay">
       <div>
-        <p>Enter the clock position when you first felt the urge to move:</p>
+        <p style="font-size:25px; font-family:Consolas, monospace; font-weight:bold;">
+          Enter the clock position the dot color was changed to green:
+        </p>
         <input type="number" id="wTimeDeg" min="0" max="59.9" step="0.1" />
         <br />
-        <p>
+        <p style="font-size:25px; font-family:Consolas, monospace; font-weight:bold;">
           Rate your confidence on your urge time: High (3), Medium (2), Low (1):
         </p>
         <input type="number" id="confidenceLevel" min="1" max="3" step="1" />
@@ -229,7 +219,7 @@
       let dotAlpha = 1;
       let trialData = [];
       let trialNumber = 0;
-      const totalTrials = 200;
+      const totalTrials = 100;
       let currentTrial = {};
 
       // --- Green Flash Variables ---
@@ -246,10 +236,19 @@
       const wTimeInput = document.getElementById("wTimeDeg");
       const confidenceInput = document.getElementById("confidenceLevel");
       const beepSound = document.getElementById("beepSound");
-      const EXPERIMENTER_EMAIL = "experimenter@example.com"; // !!--- IMPORTANT: Replace with actual email ---!
+      const EXPERIMENTER_EMAIL = "kalpajyotih@iisc.ac.in";
+      // !!--- IMPORTANT: Replace with actual email ---!
 
       function drawClockFace() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Fill the clock face with white
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+        ctx.fillStyle = "white";
+        ctx.fill();
+
+        // Draw the clock border
         ctx.beginPath();
         ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
         ctx.lineWidth = 5;
@@ -269,18 +268,31 @@
           ctx.moveTo(x1, y1);
           ctx.lineTo(x2, y2);
           ctx.lineWidth = i % 5 === 0 ? 3 : 1;
-          ctx.strokeStyle = "white";
+          ctx.strokeStyle = "black";
           ctx.stroke();
 
+          // Draw hour tick numbers (5,10,...,55,0)
           if (i % 5 === 0) {
-            const label = i === 0 ? "60" : i.toString();
-            const labelX = centerX + (radius + 20) * Math.cos(angle);
-            const labelY = centerY + (radius + 20) * Math.sin(angle);
-            ctx.font = "18px Arial";
+            let label = i === 0 ? "0" : (i).toString();
+            // Convert 0 to 60 for the top if you want, else keep as 0
+            // let label = i === 0 ? "60" : (i).toString();
+            const labelX = centerX + (radius - 35) * Math.cos(angle);
+            const labelY = centerY + (radius - 35) * Math.sin(angle);
+            ctx.font = "bold 18px Arial";
             ctx.textAlign = "center";
             ctx.textBaseline = "middle";
-            ctx.fillStyle = "white";
+            ctx.fillStyle = "black";
             ctx.fillText(label, labelX, labelY);
+          } else {
+            // Draw minor tick numbers (1,2,3,4) between hour ticks
+            const minorNum = i % 5;
+            const labelX = centerX + (radius - 22) * Math.cos(angle);
+            const labelY = centerY + (radius - 22) * Math.sin(angle);
+            ctx.font = "12px Arial";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillStyle = "#444";
+            ctx.fillText(minorNum, labelX, labelY);
           }
         }
       }
@@ -337,9 +349,7 @@
         dotAlpha = 1;
         dotAngle = Math.random() * 2 * Math.PI - Math.PI / 2;
         const startingPosition =
-          ((dotAngle + Math.PI / 2 + 2 * Math.PI) % (2 * Math.PI)) /
-          (2 * Math.PI)) *
-          60;
+          (((dotAngle + Math.PI / 2 + 2 * Math.PI) % (2 * Math.PI)) / (2 * Math.PI)) * 60;
 
         trialStartTime = performance.now();
 
@@ -370,8 +380,7 @@
         const finalAngle = dotAngle + (elapsed / rotationPeriod) * 2 * Math.PI;
         const actionPosition =
           ((finalAngle + Math.PI / 2 + 2 * Math.PI) % (2 * Math.PI)) /
-          (2 * Math.PI)) *
-          60;
+          (2 * Math.PI) * 60;
 
         // --- Determine dot color at the exact moment of key press ---
         let colorAtAction = defaultDotColor;
@@ -401,17 +410,19 @@
           confidence: null,
         };
 
-        let fadeStart = performance.now();
+        // --- Move dot for 500 ms after key press ---
+        const postMoveDuration = 500; // was 200
+        const postMoveStart = performance.now();
 
-        // --- Fade Out Function ---
-        function fadeOutDot(timestamp) {
-          const elapsedFade = timestamp - fadeStart;
-          dotAlpha = Math.max(0, 1 - elapsedFade / 500);
+        function postMoveDot(now) {
+          const elapsedPostMove = now - postMoveStart;
+          const totalElapsed = elapsed + elapsedPostMove;
+          const movingAngle = dotAngle + (totalElapsed / rotationPeriod) * 2 * Math.PI;
 
           drawClockFace();
 
-          const dotX = centerX + radius * Math.cos(finalAngle);
-          const dotY = centerY + radius * Math.sin(finalAngle);
+          const dotX = centerX + radius * Math.cos(movingAngle);
+          const dotY = centerY + radius * Math.sin(movingAngle);
           const colorParts =
             colorAtAction === defaultDotColor ? [255, 0, 0] : [0, 255, 0];
 
@@ -420,24 +431,50 @@
           ctx.fillStyle = `rgba(${colorParts[0]}, ${colorParts[1]}, ${colorParts[2]}, ${dotAlpha})`;
           ctx.fill();
 
-          if (dotAlpha > 0) {
-            requestAnimationFrame(fadeOutDot);
+          if (elapsedPostMove < postMoveDuration) {
+            requestAnimationFrame(postMoveDot);
           } else {
-            drawClockFace();
-            ctx.beginPath();
-            ctx.arc(dotX, dotY, dotRadius, 0, 2 * Math.PI);
-            ctx.fillStyle = colorAtAction;
-            ctx.fill();
-
-            setTimeout(() => {
-              overlay.style.display = "flex";
-              wTimeInput.focus();
-            }, 50);
+            // After 500 ms, fade out the dot at its last position
+            fadeOutDot(performance.now(), movingAngle, colorAtAction);
           }
         }
-        // --- End Fade Out Function ---
 
-        requestAnimationFrame(fadeOutDot);
+        function fadeOutDot(fadeStart, fadeAngle, fadeColor) {
+          function fadeStep(timestamp) {
+            const elapsedFade = timestamp - fadeStart;
+            dotAlpha = Math.max(0, 1 - elapsedFade / 500);
+
+            drawClockFace();
+
+            const dotX = centerX + radius * Math.cos(fadeAngle);
+            const dotY = centerY + radius * Math.sin(fadeAngle);
+            const colorParts =
+              fadeColor === defaultDotColor ? [255, 0, 0] : [0, 255, 0];
+
+            ctx.beginPath();
+            ctx.arc(dotX, dotY, dotRadius, 0, 2 * Math.PI);
+            ctx.fillStyle = `rgba(${colorParts[0]}, ${colorParts[1]}, ${colorParts[2]}, ${dotAlpha})`;
+            ctx.fill();
+
+            if (dotAlpha > 0) {
+              requestAnimationFrame(fadeStep);
+            } else {
+              drawClockFace();
+              ctx.beginPath();
+              ctx.arc(dotX, dotY, dotRadius, 0, 2 * Math.PI);
+              ctx.fillStyle = fadeColor;
+              ctx.fill();
+
+              setTimeout(() => {
+                overlay.style.display = "flex";
+                wTimeInput.focus();
+              }, 50);
+            }
+          }
+          requestAnimationFrame(fadeStep);
+        }
+
+        requestAnimationFrame(postMoveDot);
       }
 
       function submitWTime() {
@@ -520,9 +557,9 @@
           "Action Time (ms)",
           "Key-Press (clock_pos)",
           "Dot_Color_at_Action",
-          "W-Time (clock_pos)",
+          "Report-Time (clock_pos)", // changed from W-Time
           "Confidence (1-3)",
-          "W-Delay (ms)",
+          "Report-Delay (ms)", // changed from W-Delay
           "Timestamp",
         ];
 
@@ -550,7 +587,7 @@
           encryptionStrength: 3, // AES-256
         });
 
-        const filenameBase = `libet_data_${participantID}_${new Date().toISOString().slice(0, 10)}`;
+        const filenameBase = `reactivetask_${participantID}_${new Date().toISOString().slice(0, 10)}`;
         await zipWriter.add(
           `${filenameBase}.csv`,
           new zip.TextReader(csvContent),
@@ -569,10 +606,10 @@
         // Update placeholder text in upload section
         document.getElementById('downloadedFilename').textContent = `${filenameBase}.zip`;
         document.getElementById('zipPasswordDisplay').textContent = ZIP_PASSWORD;
-        document.getElementById('experimenterEmailDisplay').textContent = EXPERIMENTER_EMAIL; // Show email here
-        document.getElementById('experimenterEmailDisplay').href = `mailto:${EXPERIMENTER_EMAIL}`; // Make it clickable
+        document.getElementById('experimenterEmailDisplay').textContent = EXPERIMENTER_EMAIL;
+        document.getElementById('experimenterEmailDisplay').href = `mailto:${EXPERIMENTER_EMAIL}`;
 
-        document.getElementById("upload-section").style.display = "flex"; // Use flex now
+        document.getElementById("upload-section").style.display = "flex";
         canvas.style.display = "none";
         alert(
           "Data downloaded as a password-protected ZIP file. Please email it to the experimenter."
@@ -585,9 +622,10 @@
           if (e.key === "Enter") {
             submitWTime();
           } else if (e.key >= "1" && e.key <= "3" && document.activeElement !== wTimeInput) {
-             if (!confidenceInput.value) {
-                confidenceInput.value = e.key;
-             }
+               if (!confidenceInput.value) {
+                  confidenceInput.value = e.key;
+                  e.preventDefault(); // Prevent double entry
+               }
           }
           return;
         }
@@ -611,11 +649,31 @@
         }
       });
 
+      // Add these event listeners after your variable declarations, before any function definitions or at the end of your <script> tag:
+
+      wTimeInput.addEventListener("keydown", function(e) {
+        if (e.key === "Enter") {
+          // Only move to confidence input if clock position is valid
+          const w = parseFloat(wTimeInput.value);
+          if (!isNaN(w) && w >= 0 && w < 60) {
+            confidenceInput.focus();
+          } else {
+            alert("Please enter a valid clock position (0–59.9).");
+            wTimeInput.focus();
+          }
+        }
+      });
+
+      confidenceInput.addEventListener("keydown", function(e) {
+        if (e.key === "Enter") {
+          submitWTime();
+        }
+      });
+
       // Initial setup
       drawClockFace();
     </script>
 
-    <!-- Modified upload section -->
     <!-- Modified upload section -->
     <div
       id="upload-section"
@@ -625,13 +683,12 @@
         left: 0;
         width: 100vw;
         height: 100vh;
-        display: none; /* Initially hidden - THIS IS THE ONLY DISPLAY PROPERTY NEEDED HERE */
+        display: none;
         background: black;
         color: white;
         text-align: center;
         padding: 20px;
         z-index: 20;
-        /* display: flex; */ /* <<< REMOVED THIS LINE */
         flex-direction: column;
         align-items: center;
         justify-content: center;
@@ -656,7 +713,6 @@
             >libet_data_...zip</code
           >
         </p>
-        <!-- Modified instructions for emailing -->
         <p style="color: #ddd; margin-top: 20px">
           Please attach the downloaded ZIP file to an email and send it to:
           <br />
@@ -665,22 +721,12 @@
           >
             <a
               id="experimenterEmailDisplay"
-              href="#"
+              href="mailto:kalpajyotih@iisc.ac.in"
               style="color: #ffc107; text-decoration: none"
-              >experimenter@example.com</a
-            >
+            >kalpajyotih@iisc.ac.in</a>
           </strong>
         </p>
-        <!-- Removed upload link -->
-        <p style="color: #aaa; font-size: 0.9em; margin-top: 25px">
-          (Remember the password for the ZIP file is:
-          <code
-            id="zipPasswordDisplay"
-            style="background: #444; padding: 2px 5px; border-radius: 3px"
-            ><?php echo $ZIP_PASSWORD ?></code
-          >) <br />
-          You can now close this browser tab.
-        </p>
+        <!-- Removed password and close tab lines -->
       </div>
     </div>
   </body>

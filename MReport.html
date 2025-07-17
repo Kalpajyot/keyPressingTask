@@ -245,7 +245,7 @@
       let dotAlpha = 1;
       let trialData = [];
       let trialNumber = 0;
-      const totalTrials = 200;
+      const totalTrials = 100;
       let currentTrial = {};
 
       const overlay = document.getElementById("overlay");
@@ -509,7 +509,7 @@
         });
 
         await zipWriter.add(
-          `libet_data_${participantID}.csv`,
+          `libet_data_Mtask${participantID}.csv`,
           new zip.TextReader(csvContent),
           {
             password: ZIP_PASSWORD,
