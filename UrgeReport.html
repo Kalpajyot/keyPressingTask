@@ -203,13 +203,33 @@
     </div> -->
     <div id="overlay">
       <div>
-        <p>Enter the clock position when you first felt the urge to move:</p>
+        <!-- Show the clock face again on the reporting page -->
+        <canvas
+          id="reportClock"
+          width="300"
+          height="300"
+          style="margin-bottom: 20px"
+        ></canvas>
+        <p
+          style="
+            font-size: 20px;
+            font-family: Consolas, monospace;
+            font-weight: bold;
+          "
+        >
+          Enter the clock position when you first felt the urge to move:
+        </p>
         <input type="number" id="wTimeDeg" min="0" max="360" step="0.1" />
         <br />
-        <p>
-          If you are highly confident on your urge time, press
-          <strong>3</strong>, medium <strong>2</strong>, or low
-          <strong>1</strong>:
+        <p
+          style="
+            font-size: 20px;
+            font-family: Consolas, monospace;
+            font-weight: bold;
+          "
+        >
+          If you are highly confident on your urge time, press <strong>3</strong>,
+          medium <strong>2</strong>, or low <strong>1</strong>:
         </p>
         <input type="number" id="confidenceLevel" min="1" max="3" step="1" />
         <br />
@@ -254,6 +274,14 @@
 
       function drawClockFace() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Fill the clock face with white
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+        ctx.fillStyle = "white";
+        ctx.fill();
+
+        // Draw the clock border
         ctx.beginPath();
         ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
         ctx.lineWidth = 5;
@@ -269,22 +297,36 @@
           const x2 = centerX + outer * Math.cos(angle);
           const y2 = centerY + outer * Math.sin(angle);
 
+          // Draw tick
           ctx.beginPath();
           ctx.moveTo(x1, y1);
           ctx.lineTo(x2, y2);
           ctx.lineWidth = i % 5 === 0 ? 3 : 1;
-          ctx.strokeStyle = "white";
+          ctx.strokeStyle = "black";
           ctx.stroke();
 
+          // Major tick numbers (0,5,10,...,55) outside the ticks
           if (i % 5 === 0) {
-            const label = i === 0 ? "60" : i.toString();
-            const labelX = centerX + (radius + 20) * Math.cos(angle);
-            const labelY = centerY + (radius + 20) * Math.sin(angle);
-            ctx.font = "18px Arial";
+            const label = i.toString();
+            const labelRadius = radius - 35;
+            const labelX = centerX + labelRadius * Math.cos(angle);
+            const labelY = centerY + labelRadius * Math.sin(angle);
+            ctx.font = "bold 22px Arial";
             ctx.textAlign = "center";
             ctx.textBaseline = "middle";
-            ctx.fillStyle = "white";
+            ctx.fillStyle = "black";
             ctx.fillText(label, labelX, labelY);
+          } else {
+            // Minor tick numbers (1,2,3,4) inside the ticks
+            const minorNum = i % 5;
+            const labelRadius = radius - 22;
+            const labelX = centerX + labelRadius * Math.cos(angle);
+            const labelY = centerY + labelRadius * Math.sin(angle);
+            ctx.font = "15px Arial";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillStyle = "#444";
+            ctx.fillText(minorNum, labelX, labelY);
           }
         }
       }
@@ -312,20 +354,40 @@
       function startTrial() {
         if (trialNumber >= totalTrials) return;
 
-        trialNumber++;
-        trialRunning = true;
-        dotAlpha = 1;
-        dotAngle = Math.random() * 2 * Math.PI - Math.PI / 2; // Set a random starting angle
-        const startingPosition =
-          ((dotAngle + Math.PI / 2) / (2 * Math.PI)) * 60; // Convert to clock position (0–59)
-        trialStartTime = performance.now();
+        // Show relax message for 1 second before each trial
+        const relaxDiv = document.createElement("div");
+        relaxDiv.id = "relax-message";
+        relaxDiv.style.position = "fixed";
+        relaxDiv.style.top = 0;
+        relaxDiv.style.left = 0;
+        relaxDiv.style.width = "100vw";
+        relaxDiv.style.height = "100vh";
+        relaxDiv.style.background = "rgba(255,255,255,0.95)";
+        relaxDiv.style.display = "flex";
+        relaxDiv.style.alignItems = "center";
+        relaxDiv.style.justifyContent = "center";
+        relaxDiv.style.zIndex = 1000;
+        relaxDiv.innerHTML = `<span style="font-size: 50px; color: green; font-family: Arial, monospace; font-weight: bold;">RELAX</span>`;
+        document.body.appendChild(relaxDiv);
 
-        currentTrial = {
-          trial: trialNumber,
-          starting_position: startingPosition.toFixed(1), // Save starting position
-        };
+        setTimeout(() => {
+          document.body.removeChild(relaxDiv);
 
-        requestAnimationFrame(drawClock);
+          trialNumber++;
+          trialRunning = true;
+          dotAlpha = 1;
+          dotAngle = Math.random() * 2 * Math.PI - Math.PI / 2; // Set a random starting angle
+          const startingPosition =
+            ((dotAngle + Math.PI / 2) / (2 * Math.PI)) * 60; // Convert to clock position (0–59)
+          trialStartTime = performance.now();
+
+          currentTrial = {
+            trial: trialNumber,
+            starting_position: startingPosition.toFixed(1), // Save starting position
+          };
+
+          requestAnimationFrame(drawClock);
+        }, 1000);
       }
 
       function endTrial(responseTime) {
@@ -535,6 +597,79 @@
           alert("Task quit. Press S to save any collected data.");
         }
       });
+
+      // Draw the clock face in the report overlay
+      function drawReportClockFace() {
+        const reportCanvas = document.getElementById("reportClock");
+        if (!reportCanvas) return;
+        const ctx = reportCanvas.getContext("2d");
+        const centerX = reportCanvas.width / 2;
+        const centerY = reportCanvas.height / 2;
+        const radius = 110;
+
+        ctx.clearRect(0, 0, reportCanvas.width, reportCanvas.height);
+
+        // Fill the clock face with white
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+        ctx.fillStyle = "white";
+        ctx.fill();
+
+        // Draw the clock border
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+        ctx.lineWidth = 4;
+        ctx.strokeStyle = "black";
+        ctx.stroke();
+
+        for (let i = 0; i < 60; i++) {
+          const angle = (i / 60) * 2 * Math.PI - Math.PI / 2;
+          const outer = radius;
+          const inner = i % 5 === 0 ? radius - 15 : radius - 7;
+          const x1 = centerX + inner * Math.cos(angle);
+          const y1 = centerY + inner * Math.sin(angle);
+          const x2 = centerX + outer * Math.cos(angle);
+          const y2 = centerY + outer * Math.sin(angle);
+
+          ctx.beginPath();
+          ctx.moveTo(x1, y1);
+          ctx.lineTo(x2, y2);
+          ctx.lineWidth = i % 5 === 0 ? 3 : 1;
+          ctx.strokeStyle = "black";
+          ctx.stroke();
+
+          // Draw hour tick numbers (5,10,...,55,60)
+          if (i % 5 === 0) {
+            const label = i === 0 ? "60" : i.toString();
+            const labelX = centerX + (radius - 25) * Math.cos(angle);
+            const labelY = centerY + (radius - 25) * Math.sin(angle);
+            ctx.font = "bold 14px Consolas, monospace";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillStyle = "black";
+            ctx.fillText(label, labelX, labelY);
+          } else {
+            // Draw minor tick numbers (1,2,3,4)
+            const minorNum = i % 5;
+            const labelX = centerX + (radius - 13) * Math.cos(angle);
+            const labelY = centerY + (radius - 13) * Math.sin(angle);
+            ctx.font = "11px Consolas, monospace";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillStyle = "#444";
+            ctx.fillText(minorNum, labelX, labelY);
+          }
+        }
+      }
+
+      // Draw the report clock face when overlay is shown
+      const overlayDiv = document.getElementById("overlay");
+      const observer = new MutationObserver(() => {
+        if (overlayDiv.style.display === "flex") {
+          drawReportClockFace();
+        }
+      });
+      observer.observe(overlayDiv, { attributes: true, attributeFilter: ["style"] });
     </script>
     <div
       id="upload-section"
