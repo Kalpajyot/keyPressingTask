@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <script src="https://cdn.jsdelivr.net/npm/@zip.js/zip.js@2.7.27/dist/zip.min.js"></script>
+
+    <meta charset="UTF-8" />
+    <title>Libet Clock</title>
+    <style>
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+        background: rgb(0, 0, 0);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: sans-serif;
+      }
+
+      canvas {
+        background-color: rgb(0, 0, 0);
+      }
+
+      #overlay,
+      #instruction,
+      #participantIDForm {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        padding: 20px;
+        z-index: 10;
+      }
+
+      #overlay,
+      #instruction {
+        display: none;
+      }
+
+      button {
+        font-size: 16px;
+        padding: 6px 12px;
+        margin-top: 20px;
+        background-color: #28a745;
+        /* Green */
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+      }
+
+      button:hover,
+      button:focus {
+        background-color: #ff8800;
+        /* Orange */
+      }
+
+      input {
+        font-size: 16px;
+        padding: 5px;
+      }
+
+      #instruction {
+        background-color: black;
+        color: white;
+        font-family: sans-serif;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        padding: 20px;
+        text-align: center;
+        width: 100vw;
+        height: 100vh;
+        z-index: 10;
+      }
+
+      #instruction button {
+        font-size: 16px;
+        padding: 10px 20px;
+        margin-top: 20px;
+        background-color: #28a745; /* Green */
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+        font-weight: bold;
+      }
+
+      #instruction button:hover,
+      #instruction button:focus {
+        background-color: #ff8800; /* Orange */
+      }
+    </style>
+  </head>
+
+  <body>
+    <div id="participantIDForm">
+      <div>
+        <h2>Participant Information</h2>
+        <p>Please enter your Name:</p>
+        <input type="text" id="participantID" required />
+        <br />
+        <button onclick="collectID()">Continue</button>
+      </div>
+    </div>
+
+    <div id="instruction">
+      <div>
+        <h2 style="font-weight: bold; color: white">
+          Reactive Task Instructions
+        </h2>
+        <ul style="color: white; font-weight: bold; text-align: left">
+          <li>
+            You will see a clock with a dot rotating around it during the task.
+          </li>
+          <li>
+            The dot will briefly flash <span style="color:lime">green</span> at random times.
+          </li>
+          <li>
+            <strong>Your task:</strong> As soon as you see the dot turn green, <strong>immediately press the right arrow key</strong>.
+          </li>
+          <li>
+            After pressing the right arrow key, a question box will appear asking:
+            <ul>
+              <li>
+                Where was the dot on the clock face when it turned green?
+              </li>
+              <li>
+                How confident are you about this position?
+              </li>
+            </ul>
+          </li>
+          <li>
+            <strong>Important:</strong> Try to react as quickly as possible when the dot turns green.
+          </li>
+          <li>
+            After each trial:
+            <ul>
+              <li>
+                Enter the clock position (0–59.9) where the dot turned green.
+              </li>
+              <li>
+                Enter your confidence level (1=Low, 2=Medium, 3=High).
+              </li>
+              <li>
+                Just give your best estimate; it doesn't have to be exact.
+              </li>
+            </ul>
+          </li>
+          <li>
+            There will be <strong>100 trials</strong>. Stay relaxed and focused.
+          </li>
+          <li>
+            After the last trial, press <strong>S</strong> to download your data as a password-protected ZIP file.
+          </li>
+          <li>
+            Please email the downloaded ZIP file to the experimenter at:
+            <strong>kalpajyotih@iisc.ac.in</strong>
+          </li>
+        </ul>
+        <p style="font-weight: bold; color: white">
+          Press the button below to begin the task.
+        </p>
+        <button onclick="startTask()">Start</button>
+      </div>
+    </div>
+
+    <canvas id="clock" width="500" height="500"></canvas>
+
+    <div id="overlay">
+      <div>
+        <p style="font-size:25px; font-family:Consolas, monospace; font-weight:bold;">
+          Enter the clock position the dot color was changed to green:
+        </p>
+        <input type="number" id="wTimeDeg" min="0" max="59.9" step="0.1" />
+        <br />
+        <p style="font-size:25px; font-family:Consolas, monospace; font-weight:bold;">
+          Rate your confidence on your urge time: High (3), Medium (2), Low (1):
+        </p>
+        <input type="number" id="confidenceLevel" min="1" max="3" step="1" />
+        <br />
+        <button onclick="submitWTime()">Submit</button>
+      </div>
+    </div>
+
+    <!-- Audio element for feedback -->
+    <audio
+      id="beepSound"
+      src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg"
+      preload="auto"
+    ></audio>
+
+    <script>
+      const canvas = document.getElementById("clock");
+      const ctx = canvas.getContext("2d");
+      const centerX = canvas.width / 2;
+      const centerY = canvas.height / 2;
+      const radius = 180;
+      const dotRadius = 8;
+      const defaultDotColor = "red";
+      const flashDotColor = "lime";
+      const rotationPeriod = 5100;
+
+      let participantID = "";
+      const ZIP_PASSWORD = "libet123";
+      let trialStartTime = null;
+      let animationId = null;
+      let trialRunning = false;
+      let dotAngle = Math.random() * 2 * Math.PI - Math.PI / 2;
+      let dotAlpha = 1;
+      let trialData = [];
+      let trialNumber = 0;
+      const totalTrials = 100;
+      let currentTrial = {};
+
+      // --- Green Flash Variables ---
+      let greenFlashScheduledTime = null;
+      const greenFlashDuration = 200;
+      const minFlashTime = 2000;
+      const maxFlashTime = 6000;
+      let actualGreenFlashStartTime_ms = null;
+      let isCurrentlyFlashing = false;
+      // --------------------------
+
+      const overlay = document.getElementById("overlay");
+      const instruction = document.getElementById("instruction");
+      const wTimeInput = document.getElementById("wTimeDeg");
+      const confidenceInput = document.getElementById("confidenceLevel");
+      const beepSound = document.getElementById("beepSound");
+      const EXPERIMENTER_EMAIL = "kalpajyotih@iisc.ac.in";
+      // !!--- IMPORTANT: Replace with actual email ---!
+
+      function drawClockFace() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Fill the clock face with white
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+        ctx.fillStyle = "white";
+        ctx.fill();
+
+        // Draw the clock border
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+        ctx.lineWidth = 5;
+        ctx.strokeStyle = "white";
+        ctx.stroke();
+
+        for (let i = 0; i < 60; i++) {
+          const angle = (i / 60) * 2 * Math.PI - Math.PI / 2;
+          const outer = radius;
+          const inner = i % 5 === 0 ? radius - 15 : radius - 7;
+          const x1 = centerX + inner * Math.cos(angle);
+          const y1 = centerY + inner * Math.sin(angle);
+          const x2 = centerX + outer * Math.cos(angle);
+          const y2 = centerY + outer * Math.sin(angle);
+
+          ctx.beginPath();
+          ctx.moveTo(x1, y1);
+          ctx.lineTo(x2, y2);
+          ctx.lineWidth = i % 5 === 0 ? 3 : 1;
+          ctx.strokeStyle = "black";
+          ctx.stroke();
+
+          // Draw hour tick numbers (5,10,...,55,0)
+          if (i % 5 === 0) {
+            let label = i === 0 ? "0" : (i).toString();
+            // Convert 0 to 60 for the top if you want, else keep as 0
+            // let label = i === 0 ? "60" : (i).toString();
+            const labelX = centerX + (radius - 35) * Math.cos(angle);
+            const labelY = centerY + (radius - 35) * Math.sin(angle);
+            ctx.font = "bold 18px Arial";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillStyle = "black";
+            ctx.fillText(label, labelX, labelY);
+          } else {
+            // Draw minor tick numbers (1,2,3,4) between hour ticks
+            const minorNum = i % 5;
+            const labelX = centerX + (radius - 22) * Math.cos(angle);
+            const labelY = centerY + (radius - 22) * Math.sin(angle);
+            ctx.font = "12px Arial";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillStyle = "#444";
+            ctx.fillText(minorNum, labelX, labelY);
+          }
+        }
+      }
+
+      function drawClock(timestamp) {
+        if (!trialStartTime) trialStartTime = timestamp;
+        const elapsed = timestamp - trialStartTime;
+        const rotationAngle =
+          ((elapsed % rotationPeriod) / rotationPeriod) * 2 * Math.PI;
+        const currentAngle = dotAngle + rotationAngle;
+
+        drawClockFace();
+
+        // --- Determine Dot Color and Record Flash Start Time ---
+        let currentDotFillColor = defaultDotColor;
+        let shouldBeFlashing = false;
+
+        if (greenFlashScheduledTime !== null && elapsed >= greenFlashScheduledTime) {
+             if (elapsed < greenFlashScheduledTime + greenFlashDuration) {
+                shouldBeFlashing = true;
+             }
+        }
+
+        if (shouldBeFlashing) {
+            currentDotFillColor = flashDotColor;
+            if (!isCurrentlyFlashing && actualGreenFlashStartTime_ms === null) {
+                actualGreenFlashStartTime_ms = elapsed;
+            }
+            isCurrentlyFlashing = true;
+        } else {
+            isCurrentlyFlashing = false;
+        }
+        // --- ---
+
+        const dotX = centerX + radius * Math.cos(currentAngle);
+        const dotY = centerY + radius * Math.sin(currentAngle);
+        ctx.beginPath();
+        ctx.arc(dotX, dotY, dotRadius, 0, 2 * Math.PI);
+        const colorParts =
+          currentDotFillColor === defaultDotColor ? [255, 0, 0] : [0, 255, 0];
+        ctx.fillStyle = `rgba(${colorParts[0]}, ${colorParts[1]}, ${colorParts[2]}, ${dotAlpha})`;
+        ctx.fill();
+
+        if (trialRunning) {
+          animationId = requestAnimationFrame(drawClock);
+        }
+      }
+
+      function startTrial() {
+        if (trialNumber >= totalTrials) return;
+
+        trialNumber++;
+        trialRunning = true;
+        dotAlpha = 1;
+        dotAngle = Math.random() * 2 * Math.PI - Math.PI / 2;
+        const startingPosition =
+          (((dotAngle + Math.PI / 2 + 2 * Math.PI) % (2 * Math.PI)) / (2 * Math.PI)) * 60;
+
+        trialStartTime = performance.now();
+
+        // --- Reset Flash Variables for New Trial ---
+        greenFlashScheduledTime =
+          Math.random() * (maxFlashTime - minFlashTime) + minFlashTime;
+        actualGreenFlashStartTime_ms = null;
+        isCurrentlyFlashing = false;
+        // ------------------------------------------
+
+        currentTrial = {
+          trial: trialNumber,
+          starting_position: startingPosition.toFixed(1),
+          green_flash_schedule_ms: greenFlashScheduledTime.toFixed(1),
+          green_flash_actual_start_ms: null,
+        };
+
+        requestAnimationFrame(drawClock);
+      }
+
+      function endTrial(responseTime) {
+        if (!trialRunning) return;
+
+        trialRunning = false;
+        cancelAnimationFrame(animationId);
+
+        const elapsed = responseTime - trialStartTime;
+        const finalAngle = dotAngle + (elapsed / rotationPeriod) * 2 * Math.PI;
+        const actionPosition =
+          ((finalAngle + Math.PI / 2 + 2 * Math.PI) % (2 * Math.PI)) /
+          (2 * Math.PI) * 60;
+
+        // --- Determine dot color at the exact moment of key press ---
+        let colorAtAction = defaultDotColor;
+        if (
+          greenFlashScheduledTime !== null &&
+          elapsed >= greenFlashScheduledTime &&
+          elapsed < greenFlashScheduledTime + greenFlashDuration
+        ) {
+          colorAtAction = flashDotColor;
+        }
+        // --- ---
+
+        beepSound.play();
+
+        currentTrial = {
+          ...currentTrial,
+          participant: participantID,
+          action_ms: Math.round(elapsed),
+          action_position: actionPosition.toFixed(1),
+          timestamp: new Date().toISOString(),
+          dot_color_at_action: colorAtAction,
+          green_flash_actual_start_ms: actualGreenFlashStartTime_ms !== null ? Math.round(actualGreenFlashStartTime_ms) : null,
+          w_time_position: null,
+          w_time_angle: null,
+          action_angle: null,
+          w_delay_ms: null,
+          confidence: null,
+        };
+
+        // --- Move dot for 500 ms after key press ---
+        const postMoveDuration = 500; // was 200
+        const postMoveStart = performance.now();
+
+        function postMoveDot(now) {
+          const elapsedPostMove = now - postMoveStart;
+          const totalElapsed = elapsed + elapsedPostMove;
+          const movingAngle = dotAngle + (totalElapsed / rotationPeriod) * 2 * Math.PI;
+
+          drawClockFace();
+
+          const dotX = centerX + radius * Math.cos(movingAngle);
+          const dotY = centerY + radius * Math.sin(movingAngle);
+          const colorParts =
+            colorAtAction === defaultDotColor ? [255, 0, 0] : [0, 255, 0];
+
+          ctx.beginPath();
+          ctx.arc(dotX, dotY, dotRadius, 0, 2 * Math.PI);
+          ctx.fillStyle = `rgba(${colorParts[0]}, ${colorParts[1]}, ${colorParts[2]}, ${dotAlpha})`;
+          ctx.fill();
+
+          if (elapsedPostMove < postMoveDuration) {
+            requestAnimationFrame(postMoveDot);
+          } else {
+            // After 500 ms, fade out the dot at its last position
+            fadeOutDot(performance.now(), movingAngle, colorAtAction);
+          }
+        }
+
+        function fadeOutDot(fadeStart, fadeAngle, fadeColor) {
+          function fadeStep(timestamp) {
+            const elapsedFade = timestamp - fadeStart;
+            dotAlpha = Math.max(0, 1 - elapsedFade / 500);
+
+            drawClockFace();
+
+            const dotX = centerX + radius * Math.cos(fadeAngle);
+            const dotY = centerY + radius * Math.sin(fadeAngle);
+            const colorParts =
+              fadeColor === defaultDotColor ? [255, 0, 0] : [0, 255, 0];
+
+            ctx.beginPath();
+            ctx.arc(dotX, dotY, dotRadius, 0, 2 * Math.PI);
+            ctx.fillStyle = `rgba(${colorParts[0]}, ${colorParts[1]}, ${colorParts[2]}, ${dotAlpha})`;
+            ctx.fill();
+
+            if (dotAlpha > 0) {
+              requestAnimationFrame(fadeStep);
+            } else {
+              drawClockFace();
+              ctx.beginPath();
+              ctx.arc(dotX, dotY, dotRadius, 0, 2 * Math.PI);
+              ctx.fillStyle = fadeColor;
+              ctx.fill();
+
+              setTimeout(() => {
+                overlay.style.display = "flex";
+                wTimeInput.focus();
+              }, 50);
+            }
+          }
+          requestAnimationFrame(fadeStep);
+        }
+
+        requestAnimationFrame(postMoveDot);
+      }
+
+      function submitWTime() {
+        const w = parseFloat(wTimeInput.value);
+        const confidence = parseInt(confidenceInput.value);
+
+        if (isNaN(w) || w < 0 || w >= 60) {
+          alert("Please enter a valid clock position (0–59.9).");
+          wTimeInput.focus();
+          return;
+        }
+
+        if (isNaN(confidence) || confidence < 1 || confidence > 3) {
+          alert(
+            "Please enter a confidence level: 1 (Low), 2 (Medium), or 3 (High)."
+          );
+          confidenceInput.focus();
+          return;
+        }
+
+        const keyPressPosition = parseFloat(currentTrial.action_position);
+
+        let delayClockUnits = keyPressPosition - w;
+        if (delayClockUnits < 0) {
+          delayClockUnits += 60;
+        }
+        const w_time_delay = delayClockUnits * (rotationPeriod / 60);
+
+        currentTrial.w_time_position = w.toFixed(1);
+        currentTrial.w_time_angle = w.toFixed(1);
+        currentTrial.action_angle = keyPressPosition.toFixed(1);
+        currentTrial.w_delay_ms = Math.round(w_time_delay);
+        currentTrial.confidence = confidence;
+
+        trialData.push(currentTrial);
+        overlay.style.display = "none";
+        wTimeInput.value = "";
+        confidenceInput.value = "";
+        greenFlashScheduledTime = null;
+
+        if (trialNumber >= totalTrials) {
+          alert(
+            `All ${totalTrials} trials complete. Press S to save your data.`
+          );
+          canvas.style.display = "none";
+        } else {
+          setTimeout(startTrial, 300);
+        }
+      }
+
+      function collectID() {
+        const input = document.getElementById("participantID").value.trim();
+        if (!input) {
+          alert("Please enter a valid Participant ID/Name.");
+          return;
+        }
+        participantID = input.replace(/[^a-zA-Z0-9_]/g, "");
+        document.getElementById("participantIDForm").style.display = "none";
+        instruction.style.display = "flex";
+      }
+
+      function startTask() {
+        instruction.style.display = "none";
+        canvas.style.display = "block";
+        startTrial();
+      }
+
+      async function downloadCSV() {
+        if (trialData.length === 0) {
+          alert("No data collected to save.");
+          return;
+        }
+
+        const headers = [
+          "Participant",
+          "Trial",
+          "Starting Position (clock_pos)",
+          "Green_Flash_Schedule (ms)",
+          "Green_Flash_Actual_Start (ms)",
+          "Action Time (ms)",
+          "Key-Press (clock_pos)",
+          "Dot_Color_at_Action",
+          "Report-Time (clock_pos)", // changed from W-Time
+          "Confidence (1-3)",
+          "Report-Delay (ms)", // changed from W-Delay
+          "Timestamp",
+        ];
+
+        const csvContent =
+          headers.join(",") +
+          "\n" +
+          trialData
+            .map(
+              (d) =>
+                `${d.participant || participantID},${d.trial || ""},${
+                  d.starting_position || ""
+                },${d.green_flash_schedule_ms || ""},${
+                  d.green_flash_actual_start_ms !== null ? d.green_flash_actual_start_ms : ""
+                },${d.action_ms || ""},${
+                  d.action_angle || ""
+                },${d.dot_color_at_action || ""},${d.w_time_angle || ""},${
+                  d.confidence || ""
+                },${d.w_delay_ms || ""},${d.timestamp || ""}`
+            )
+            .join("\n");
+
+        const blobWriter = new zip.BlobWriter("application/zip");
+        const zipWriter = new zip.ZipWriter(blobWriter, {
+          password: ZIP_PASSWORD,
+          encryptionStrength: 3, // AES-256
+        });
+
+        const filenameBase = `reactivetask_${participantID}_${new Date().toISOString().slice(0, 10)}`;
+        await zipWriter.add(
+          `${filenameBase}.csv`,
+          new zip.TextReader(csvContent),
+          {
+            password: ZIP_PASSWORD,
+            encryptionStrength: 3,
+          }
+        );
+
+        const zipBlob = await zipWriter.close();
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(zipBlob);
+        link.download = `${filenameBase}.zip`;
+        link.click();
+
+        // Update placeholder text in upload section
+        document.getElementById('downloadedFilename').textContent = `${filenameBase}.zip`;
+        document.getElementById('zipPasswordDisplay').textContent = ZIP_PASSWORD;
+        document.getElementById('experimenterEmailDisplay').textContent = EXPERIMENTER_EMAIL;
+        document.getElementById('experimenterEmailDisplay').href = `mailto:${EXPERIMENTER_EMAIL}`;
+
+        document.getElementById("upload-section").style.display = "flex";
+        canvas.style.display = "none";
+        alert(
+          "Data downloaded as a password-protected ZIP file. Please email it to the experimenter."
+        );
+      }
+
+      // --- Event Listener ---
+      document.addEventListener("keydown", (e) => {
+        if (overlay.style.display === "flex") {
+          if (e.key === "Enter") {
+            submitWTime();
+          } else if (e.key >= "1" && e.key <= "3" && document.activeElement !== wTimeInput) {
+               if (!confidenceInput.value) {
+                  confidenceInput.value = e.key;
+                  e.preventDefault(); // Prevent double entry
+               }
+          }
+          return;
+        }
+
+        if (trialRunning && e.code === "ArrowRight") {
+          endTrial(performance.now());
+        } else if (e.key.toLowerCase() === "s") {
+            if (trialNumber > 0 || trialData.length > 0) {
+                 downloadCSV();
+            } else {
+                 alert("Please complete at least one trial before saving.");
+            }
+        } else if (e.key.toLowerCase() === "q") {
+          if (trialRunning) {
+              trialRunning = false;
+              cancelAnimationFrame(animationId);
+              alert("Task quit. Press S to save any collected data.");
+              canvas.style.display = 'none';
+              // Don't automatically show upload section on quit unless saved
+          }
+        }
+      });
+
+      // Add these event listeners after your variable declarations, before any function definitions or at the end of your <script> tag:
+
+      wTimeInput.addEventListener("keydown", function(e) {
+        if (e.key === "Enter") {
+          // Only move to confidence input if clock position is valid
+          const w = parseFloat(wTimeInput.value);
+          if (!isNaN(w) && w >= 0 && w < 60) {
+            confidenceInput.focus();
+          } else {
+            alert("Please enter a valid clock position (0–59.9).");
+            wTimeInput.focus();
+          }
+        }
+      });
+
+      confidenceInput.addEventListener("keydown", function(e) {
+        if (e.key === "Enter") {
+          submitWTime();
+        }
+      });
+
+      // Initial setup
+      drawClockFace();
+    </script>
+
+    <!-- Modified upload section -->
+    <div
+      id="upload-section"
+      style="
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        display: none;
+        background: black;
+        color: white;
+        text-align: center;
+        padding: 20px;
+        z-index: 20;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+      "
+    >
+      <div
+        style="
+          background: #333;
+          padding: 30px;
+          border-radius: 10px;
+          max-width: 600px;
+        "
+      >
+        <h2 style="color: white; font-weight: bold; margin-top: 0">
+          Task Complete / Data Saved
+        </h2>
+        <p style="color: #ddd">
+          Thank you for participating! Your data has been downloaded as: <br />
+          <code
+            id="downloadedFilename"
+            style="background: #444; padding: 2px 5px; border-radius: 3px"
+            >libet_data_...zip</code
+          >
+        </p>
+        <p style="color: #ddd; margin-top: 20px">
+          Please attach the downloaded ZIP file to an email and send it to:
+          <br />
+          <strong
+            style="font-size: 1.1em; margin-top: 5px; display: inline-block"
+          >
+            <a
+              id="experimenterEmailDisplay"
+              href="mailto:kalpajyotih@iisc.ac.in"
+              style="color: #ffc107; text-decoration: none"
+            >kalpajyotih@iisc.ac.in</a>
+          </strong>
+        </p>
+        <!-- Removed password and close tab lines -->
+      </div>
+    </div>
+  </body>
+</html>
